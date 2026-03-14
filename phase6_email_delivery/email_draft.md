@@ -1,5 +1,5 @@
 Subject: [Weekly Pulse] Groww Mutual Fund Reviews — Week of 2026-03-14
-To: product-team@example.com
+To: mihirsadhwani47@gmail.com
 
 Hi Team,
 
