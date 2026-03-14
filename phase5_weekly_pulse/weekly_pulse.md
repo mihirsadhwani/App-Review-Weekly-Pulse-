@@ -1,0 +1,27 @@
+# Groww Mutual Fund — Weekly Review Pulse
+
+Week Ending: 2026-03-14
+Reviews Analysed: 107
+
+## Top Themes
+
+**Order Execution Issues** — 31 mentions
+> "exit all not working!!!! loss money sometimes"
+
+**App Performance and Bugs** — 39 mentions
+> "Today the app crashed & I got 3600 loss because of crashed. Not working the app to sell when I was at profit.. after 2 hour sold the trade at 3600 loss because of grow. third class chart view. wrong information showing in chart."
+
+**External Mutual Fund Tracking Issues** — 15 mentions
+> "1 month ho gya abhi tak mutual fund ki payment received nahi hue"
+
+**Withdrawal Delays** — 13 mentions
+> "overall grow app is good but it takes several hours to withdrawal"
+
+**Customer Support Issues** — 9 mentions
+> "Rand Customer Service BKL Ko 10 min Tak Call karne ka try Kia Koi nahi uthaya uninstall kar raha"
+
+## Product Action Ideas
+
+1.  **Implement a Real-Time Order Execution Status Update Feature** — To address order execution issues by providing users with instant updates on their order status to prevent unexpected executions.
+2.  **Develop a Priority-Based Customer Support System for Time-Sensitive Trading Issues** — To resolve customer support issues by offering a priority-based support system that quickly addresses time-sensitive trading problems.
+3.  **Introduce a Redundancy Check for Withdrawal Transactions to Prevent Delays** — To tackle withdrawal delays by implementing a redundancy check that ensures withdrawal transactions are processed correctly and promptly.

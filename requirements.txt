@@ -1,0 +1,4 @@
+google-play-scraper
+python-dotenv
+groq
+google-generativeai
