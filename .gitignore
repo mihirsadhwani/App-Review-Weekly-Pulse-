@@ -3,3 +3,13 @@
 *.pyc
 node_modules/
 storage/
+.env
+__pycache__/
+*.pyc
+
+phase3_theme_analysis/theme_map.json
+phase4_insight_generation/insights.json
+phase5_weekly_pulse/weekly_pulse.md
+phase5_weekly_pulse/weekly_pulse.txt
+phase6_email_delivery/email_draft.md
+phase6_email_delivery/email_draft.txt
