@@ -16,7 +16,7 @@ class GeminiClient:
         else:
             genai.configure(api_key=self.api_key)
             # Using Gemini 1.5 Flash
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-flash-latest')
 
     def generate_with_gemini(self, prompt: str) -> str:
         if self.model is None:
