@@ -1,9 +1,15 @@
-import streamlit as st
+import sys
 import os
+import streamlit as st
 import json
 import pandas as pd
 import plotly.express as px
 import datetime
+
+# Fix for Streamlit Cloud: Add project root to sys.path
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
 # Direct imports of service classes for Streamlit Cloud compatibility
 from phase1_review_collection.services.collector import PlayStoreCollector
