@@ -2,3 +2,6 @@ google-play-scraper
 python-dotenv
 groq
 google-generativeai
+streamlit
+pandas
+plotly
