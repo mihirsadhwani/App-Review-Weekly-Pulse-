@@ -1,7 +1,15 @@
 import os
 import smtplib
+import streamlit as st
 from email.message import EmailMessage
 from datetime import datetime
+
+def get_config(key):
+    """
+    Priority: 1. os.getenv (for local .env)
+             2. st.secrets (for Streamlit Cloud)
+    """
+    return os.getenv(key) or st.secrets.get(key)
 
 class EmailSender:
     def __init__(self, input_pulse_path: str, output_draft_md: str, output_draft_txt: str):
@@ -9,13 +17,13 @@ class EmailSender:
         self.output_draft_md = output_draft_md
         self.output_draft_txt = output_draft_txt
         
-        # Load SMTP settings
-        self.smtp_host = os.getenv("SMTP_HOST")
-        self.smtp_port = os.getenv("SMTP_PORT")
-        self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.smtp_tls = os.getenv("SMTP_TLS", "true").lower() == "true"
-        self.default_to = os.getenv("EMAIL_TO")
+        # Load SMTP settings using priority helper
+        self.smtp_host = get_config("SMTP_HOST")
+        self.smtp_port = get_config("SMTP_PORT")
+        self.smtp_user = get_config("SMTP_USER")
+        self.smtp_password = get_config("SMTP_PASSWORD")
+        self.smtp_tls = (get_config("SMTP_TLS") or "true").lower() == "true"
+        self.default_to = get_config("EMAIL_TO")
 
     def format_email_content(self, pulse_content: str, is_markdown: bool = False) -> str:
         # Markdown vs TXT spacing is slightly different if needed, but keeping simple
@@ -77,7 +85,7 @@ class EmailSender:
         if send_mode:
             print("Send Mode — Attempting SMTP delivery...")
             if not all([self.smtp_host, self.smtp_port, self.smtp_user, self.smtp_password, final_recipient]):
-                print("Error: Missing SMTP configuration or recipient in environment variables.")
+                print("Error: Missing SMTP configuration or recipient in configuration sources.")
                 return
                 
             try:
@@ -97,7 +105,8 @@ class EmailSender:
                 server.quit()
                 print("Email successfully sent.")
             except Exception as e:
-                print(f"Failed to send email: {e}")
+                print(f"SMTP ERROR: {e}")
+                st.error(f"Error sending email: {e}")
         else:
             print("Dry Run Mode — Email draft generated but not sent.")
             
