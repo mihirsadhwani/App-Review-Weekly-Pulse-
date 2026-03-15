@@ -1,10 +1,17 @@
 import streamlit as st
 import os
-import subprocess
 import json
 import pandas as pd
 import plotly.express as px
 import datetime
+
+# Import backend services directly for Cloud-native execution
+from phase1_review_collection.services.collector import PlayStoreCollector
+from phase2_review_cleaning.services.cleaner import ReviewCleaner
+from phase3_theme_analysis.services.analyzer import ThemeAnalyzer
+from phase4_insight_generation.services.insight_generator import InsightGenerator
+from phase5_weekly_pulse.services.pulse_generator import PulseGenerator
+from phase6_email_delivery.services.email_sender import EmailSender
 
 # Configuration
 st.set_page_config(page_title="Groww Weekly Review Pulse", layout="wide")
@@ -22,16 +29,12 @@ if dark_mode:
             h1, h2, h3, h4, p, span, label, div.stMarkdown p {
                 color: #e0e0e0 !important;
             }
-            /* Explicitly forcing standard Streamlit widget colors for dark mode */
             [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
                 color: #e0e0e0 !important;
             }
             div[data-testid="stExpander"] {
                 background-color: #1e1e1e !important;
                 border: 1px solid #333333 !important;
-            }
-            p, .streamlit-expanderContent {
-                color: #e0e0e0 !important;
             }
             .theme-card {
                 background-color: #1e1e1e;
@@ -45,11 +48,6 @@ if dark_mode:
                 background-color: #333333;
                 color: white;
                 border: 1px solid #555555;
-            }
-            .stButton > button:hover {
-                background-color: #444444;
-                color: white;
-                border: 1px solid #777777;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -111,19 +109,10 @@ with st.container():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        review_window = st.selectbox(
-            "Review Window",
-            ["Last 4 weeks", "Last 8 weeks", "Last 12 weeks"]
-        )
+        review_window = st.selectbox("Review Window", ["Last 4 weeks", "Last 8 weeks", "Last 12 weeks"])
         
     with col2:
-        num_reviews = st.slider(
-            "Number of Reviews to Analyse",
-            min_value=50,
-            max_value=500,
-            value=300,
-            step=50
-        )
+        num_reviews = st.slider("Number of Reviews to Analyse", min_value=50, max_value=500, value=300, step=50)
         
     with col3:
         email_recipient = st.text_input("**Recipient Email**", placeholder="user@example.com")
@@ -137,30 +126,51 @@ with st.container():
         send_email_btn = st.button("Send Weekly Report", use_container_width=True)
 
     if run_analysis_btn:
-        phases = ['collect', 'clean', 'analyze', 'insight', 'pulse']
         st.write("#### Running Pipeline")
         progress_bar = st.progress(0, text="Initializing...")
-        for i, phase in enumerate(phases):
-            progress_bar.progress((i) / len(phases), text=f"Running phase: {phase}...")
-            try:
-                subprocess.run(["python", "main.py", "--phase", phase], capture_output=True, text=True, check=True)
-            except subprocess.CalledProcessError as e:
-                st.error(f"Error in {phase}")
-                break
-        progress_bar.progress(1.0, text="Analysis Complete!")
-        st.rerun()
+        
+        try:
+            # Phase 1: Collect
+            progress_bar.progress(0.0, text="Phase 1/5: Collecting Reviews...")
+            collector = PlayStoreCollector('com.nextbillion.groww', count=num_reviews)
+            collector.collect()
+            
+            # Phase 2: Clean
+            progress_bar.progress(0.2, text="Phase 2/5: Cleaning Data...")
+            cleaner = ReviewCleaner("phase1_review_collection/raw_reviews.json", REVIEWS_CLEANED_PATH)
+            cleaner.clean()
+            
+            # Phase 3: Analyze
+            progress_bar.progress(0.4, text="Phase 3/5: Analyzing Themes...")
+            analyzer = ThemeAnalyzer(REVIEWS_CLEANED_PATH, THEME_MAP_PATH)
+            analyzer.analyze()
+            
+            # Phase 4: Insights
+            progress_bar.progress(0.6, text="Phase 4/5: Generating Insights...")
+            generator = InsightGenerator(THEME_MAP_PATH, INSIGHTS_PATH)
+            generator.generate()
+            
+            # Phase 5: Pulse
+            progress_bar.progress(0.8, text="Phase 5/5: Generating Pulse Report...")
+            pulser = PulseGenerator(THEME_MAP_PATH, INSIGHTS_PATH, PULSE_MD_PATH, "phase5_weekly_pulse/weekly_pulse.txt")
+            pulser.generate()
+            
+            progress_bar.progress(1.0, text="Analysis Complete!")
+            st.success("Entire pipeline executed successfully.")
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"Pipeline Error: {str(e)}")
 
     if send_email_btn:
         if email_recipient:
             with st.spinner("Sending email..."):
                 try:
-                    subprocess.run(
-                        ["python", "main.py", "--phase", "email", "--send", "--recipient", email_recipient],
-                        capture_output=True, text=True, check=True
-                    )
-                    st.success("Email sent!")
-                except subprocess.CalledProcessError as e:
-                    st.error("Error sending email.")
+                    sender = EmailSender(PULSE_MD_PATH, "phase6_email_delivery/email_draft.md", "phase6_email_delivery/email_draft.txt")
+                    sender.process(send_mode=True, recipient=email_recipient)
+                    st.success("Email successfully sent!")
+                except Exception as e:
+                    st.error(f"Email Error: {str(e)}")
         else:
             st.warning("Please enter an email address.")
 
@@ -173,57 +183,27 @@ if theme_map_data and 'themes' in theme_map_data:
     theme_names = [t.get('label', t.get('theme_id')) for t in themes]
     theme_counts = [t.get('review_count', len(t.get('reviews', []))) for t in themes]
     
-    df = pd.DataFrame({
-        "Theme": theme_names,
-        "Review Count": theme_counts
-    })
-    
+    df = pd.DataFrame({"Theme": theme_names, "Review Count": theme_counts})
     colors = ['#1df0e8', '#73ff4d', '#ccff29', '#f3ff1f', '#dcdde1']
     
-    fig = px.pie(
-        df, 
-        values='Review Count', 
-        names='Theme',
-        color_discrete_sequence=colors,
-        hole=0.0
-    )
-    
-    fig.update_traces(
-        textposition='inside', 
-        textinfo='percent+label', 
-        marker=dict(line=dict(color='#121212' if dark_mode else '#ffffff', width=1)),
-        insidetextorientation='radial'
-    )
-    
-    fig.update_layout(
-        margin=dict(t=10, b=10, l=10, r=10),
-        showlegend=False,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        height=400,
-        font=dict(color='#ffffff' if dark_mode else '#000000')
-    )
+    fig = px.pie(df, values='Review Count', names='Theme', color_discrete_sequence=colors, hole=0.0)
+    fig.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#121212' if dark_mode else '#ffffff', width=1)), insidetextorientation='radial')
+    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=400, font=dict(color='#ffffff' if dark_mode else '#000000'))
     st.plotly_chart(fig, use_container_width=True)
     
-    # Theme Cards directly below the chart
     cols = st.columns(len(df))
     for i, row in df.iterrows():
         with cols[i]:
             perc = int(round(row["Review Count"] / df["Review Count"].sum() * 100, 0))
             color = colors[i % len(colors)]
-            st.markdown(f'''
-            <div class="theme-card" style="border-left-color: {color};">
-                <div style="font-size: 14px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">{row["Theme"]}</div>
-                <div style="font-size: 24px; font-weight: 600;">{perc}%</div>
-            </div>
-            ''', unsafe_allow_html=True)
+            st.markdown(f'<div class="theme-card" style="border-left-color: {color};"><div style="font-size: 14px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">{row["Theme"]}</div><div style="font-size: 24px; font-weight: 600;">{perc}%</div></div>', unsafe_allow_html=True)
 else:
     st.info("Theme data not available. Please run the analysis first.")
 
 st.divider()
 
 # 4. Process Metrics Section
-reviews_analysed = len(reviews_data) if reviews_data else 0
+reviews_analysed = len(reviews_data.get('reviews', [])) if (reviews_data and isinstance(reviews_data, dict)) else 0
 themes_detected = len(theme_map_data.get('themes', [])) if theme_map_data else 0
 insights_generated = len(insights_data.get('action_ideas', [])) if insights_data else 0
 
