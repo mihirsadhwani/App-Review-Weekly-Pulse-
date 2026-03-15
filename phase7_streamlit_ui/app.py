@@ -30,7 +30,7 @@ PULSE_TXT_PATH = "phase5_weekly_pulse/weekly_pulse.txt"
 EMAIL_MD_PATH = "phase6_email_delivery/email_draft.md"
 EMAIL_TXT_PATH = "phase6_email_delivery/email_draft.txt"
 
-# --- Page Config (Light Mode, Collapsed Sidebar) ---
+# --- Page Config ---
 st.set_page_config(
     page_title="Groww Weekly Review Pulse Dashboard",
     page_icon="📊",
@@ -38,151 +38,97 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# --- Theme Toggle ---
+theme_mode = st.toggle("Dark Mode", value=False)
+
 # --- Global CSS ---
-st.markdown("""
+if theme_mode:
+    bg_primary = "#0E1117"
+    bg_card = "#1A1C24"
+    border_color = "#2D2F39"
+    text_primary = "#FFFFFF"
+    text_secondary = "#A0AEC0"
+    accent_green = "#00D09C"
+else:
+    bg_primary = "#F7F8FA"
+    bg_card = "#FFFFFF"
+    border_color = "#E8EBF0"
+    text_primary = "#1A1D26"
+    text_secondary = "#6B7280"
+    accent_green = "#00B386"
+
+st.markdown(f"""
 <style>
-    /* Import Google Font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Root variables */
-    :root {
-        --bg-primary: #F7F8FA;
-        --bg-card: #FFFFFF;
-        --border-color: #E8EBF0;
-        --text-primary: #1A1D26;
-        --text-secondary: #6B7280;
-        --accent-green: #00B386;
-        --accent-green-hover: #009973;
-    }
-
-    /* Base App */
-    .stApp {
-        background-color: var(--bg-primary) !important;
+    .stApp {{
+        background-color: {bg_primary} !important;
+        color: {text_primary} !important;
         font-family: 'Inter', sans-serif !important;
-    }
+    }}
 
-    /* Hide default Streamlit menu & footer */
-    #MainMenu, footer, header {visibility: hidden;}
+    #MainMenu, footer, header {{visibility: hidden;}}
 
-    /* Card container */
-    .ui-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 16px;
-    }
-    .ui-card h3 {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0 0 16px 0;
-    }
-
-    /* Theme percentage cards */
-    .theme-pct-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
+    .metric-mini {{
+        background: {bg_card};
+        border: 1px solid {border_color};
         border-radius: 10px;
-        padding: 16px 12px;
-        text-align: center;
-        transition: box-shadow 0.2s ease;
-    }
-    .theme-pct-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    }
-    .theme-pct-card .theme-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        margin: 0 auto 8px auto;
-    }
-    .theme-pct-card .theme-label {
-        font-size: 12px;
-        color: var(--text-secondary);
-        margin-bottom: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .theme-pct-card .theme-value {
-        font-size: 22px;
-        font-weight: 700;
-        color: var(--text-primary);
-    }
-
-    /* Metric mini cards */
-    .metric-mini {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 14px 18px;
+        padding: 12px 16px;
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 10px;
-    }
-    .metric-mini .metric-icon {
-        font-size: 22px;
-    }
-    .metric-mini .metric-info .metric-label {
-        font-size: 11px;
-        color: var(--text-secondary);
+        margin-bottom: 0px;
+    }}
+    .metric-mini .metric-icon {{ font-size: 20px; }}
+    .metric-mini .metric-info .metric-label {{
+        font-size: 10px;
+        color: {text_secondary};
         text-transform: uppercase;
         letter-spacing: 0.5px;
-    }
-    .metric-mini .metric-info .metric-val {
-        font-size: 18px;
+    }}
+    .metric-mini .metric-info .metric-val {{
+        font-size: 16px;
         font-weight: 700;
-        color: var(--text-primary);
-    }
+        color: {text_primary};
+    }}
 
-    /* Buttons */
-    .stButton > button {
+    .theme-pct-card {{
+        background: {bg_card};
+        border: 1px solid {border_color};
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
+    }}
+    .theme-pct-card .theme-label {{ font-size: 11px; color: {text_secondary}; margin-bottom: 4px; }}
+    .theme-pct-card .theme-value {{ font-size: 20px; font-weight: 700; color: {text_primary}; }}
+
+    .stButton > button {{
         width: 100%;
         border-radius: 8px;
         font-weight: 600;
-        font-size: 14px;
-        padding: 10px 20px;
-        transition: all 0.2s ease;
-        border: none;
-    }
-
-    /* Header styling */
-    .dashboard-header {
-        padding: 8px 0 4px 0;
-    }
-    .dashboard-header h1 {
-        font-size: 26px;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin: 0;
-    }
-    .dashboard-header p {
-        font-size: 14px;
-        color: var(--text-secondary);
-        margin: 4px 0 0 0;
-    }
-
-    /* Section titles */
-    .section-title {
-        font-size: 15px;
+        transition: all 0.2s;
+    }}
+    
+    .section-title {{
+        font-size: 16px;
         font-weight: 600;
-        color: var(--text-primary);
+        color: {text_primary};
         margin-bottom: 12px;
-    }
+    }}
 
-    /* Responsive: stack on small screens */
-    @media (max-width: 768px) {
-        .stButton > button {
-            font-size: 13px;
-            padding: 12px 16px;
-        }
-    }
+    /* Customizing inputs for dark mode visibility */
+    .stSelectbox label, .stSlider label, .stTextInput label {{
+        color: {text_primary} !important;
+    }}
+    
+    div[data-testid="stExpander"] {{
+        background: {bg_card} !important;
+        border: 1px solid {border_color} !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-# --- Load existing data ---
+# --- Load Data ---
 theme_map_data = None
 insights_data = None
 pulse_md_content = None
@@ -191,211 +137,137 @@ reviews_data = None
 if os.path.exists(THEME_MAP_PATH):
     with open(THEME_MAP_PATH, "r", encoding="utf-8") as f:
         theme_map_data = json.load(f)
-
 if os.path.exists(INSIGHTS_PATH):
     with open(INSIGHTS_PATH, "r", encoding="utf-8") as f:
         insights_data = json.load(f)
-
 if os.path.exists(PULSE_MD_PATH):
     with open(PULSE_MD_PATH, "r", encoding="utf-8") as f:
         pulse_md_content = f.read()
-
 if os.path.exists(REVIEWS_CLEANED_PATH):
     with open(REVIEWS_CLEANED_PATH, "r", encoding="utf-8") as f:
         reviews_data = json.load(f)
 
-# --- Header ---
-st.markdown("""
-<div class="dashboard-header">
-    <h1>📊 Groww Weekly Review Pulse Dashboard</h1>
-    <p>AI-powered analysis of Groww Play Store reviews</p>
-</div>
-""", unsafe_allow_html=True)
-st.markdown("")
-
-# --- Metrics Row ---
+# --- Top Header & Metrics (Compact) ---
 review_count = reviews_data.get('review_count', 0) if (reviews_data and isinstance(reviews_data, dict)) else 0
 theme_count = theme_map_data.get('theme_count', 0) if theme_map_data else 0
 insight_count = len(insights_data.get('action_ideas', [])) if insights_data else 0
 if os.path.exists(PULSE_MD_PATH):
     mtime = os.path.getmtime(PULSE_MD_PATH)
-    last_run_str = datetime.datetime.fromtimestamp(mtime).strftime('%d %b %Y, %H:%M')
+    last_run_str = datetime.datetime.fromtimestamp(mtime).strftime('%d %b, %H:%M')
 else:
     last_run_str = "—"
 
-mc1, mc2, mc3, mc4 = st.columns(4)
-with mc1:
-    st.markdown(f"""
-    <div class="metric-mini">
-        <div class="metric-icon">📝</div>
-        <div class="metric-info">
-            <div class="metric-label">Reviews</div>
-            <div class="metric-val">{review_count}</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
-with mc2:
-    st.markdown(f"""
-    <div class="metric-mini">
-        <div class="metric-icon">🏷️</div>
-        <div class="metric-info">
-            <div class="metric-label">Themes</div>
-            <div class="metric-val">{theme_count}</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
-with mc3:
-    st.markdown(f"""
-    <div class="metric-mini">
-        <div class="metric-icon">💡</div>
-        <div class="metric-info">
-            <div class="metric-label">Insights</div>
-            <div class="metric-val">{insight_count}</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
-with mc4:
-    st.markdown(f"""
-    <div class="metric-mini">
-        <div class="metric-icon">🕒</div>
-        <div class="metric-info">
-            <div class="metric-label">Last Run</div>
-            <div class="metric-val">{last_run_str}</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
+t1, t2 = st.columns([3, 1])
+with t1:
+    st.markdown(f"<h1 style='margin:0; font-size:28px; color:{text_primary}'>📊 Groww Weekly Review Pulse</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='margin:0; font-size:14px; color:{text_secondary}'>AI-powered product feedback intelligence</p>", unsafe_allow_html=True)
 
-st.markdown("")
+st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
-# ============================================================
-# MAIN TWO-COLUMN LAYOUT
-# Left: Chart + Theme Cards | Right: Controls + Actions
-# ============================================================
-left_col, right_col = st.columns([3, 2], gap="large")
+m1, m2, m3, m4 = st.columns(4)
+with m1:
+    st.markdown(f"<div class='metric-mini'><div class='metric-icon'>📝</div><div class='metric-info'><div class='metric-label'>Reviews</div><div class='metric-val'>{review_count}</div></div></div>", unsafe_allow_html=True)
+with m2:
+    st.markdown(f"<div class='metric-mini'><div class='metric-icon'>🏷️</div><div class='metric-info'><div class='metric-label'>Themes</div><div class='metric-val'>{theme_count}</div></div></div>", unsafe_allow_html=True)
+with m3:
+    st.markdown(f"<div class='metric-mini'><div class='metric-icon'>💡</div><div class='metric-info'><div class='metric-label'>Insights</div><div class='metric-val'>{insight_count}</div></div></div>", unsafe_allow_html=True)
+with m4:
+    st.markdown(f"<div class='metric-mini'><div class='metric-icon'>🕒</div><div class='metric-info'><div class='metric-label'>Last Run</div><div class='metric-val'>{last_run_str}</div></div></div>", unsafe_allow_html=True)
 
-# --- LEFT COLUMN: Theme Distribution ---
+st.markdown("<hr style='margin: 20px 0; border: 0; border-top: 1px solid "+border_color+"'>", unsafe_allow_html=True)
+
+# --- Main Layout (Chart side-by-side with Controls) ---
+left_col, right_col = st.columns([2, 1], gap="large")
+
 with left_col:
-    st.markdown('<div class="section-title">Theme Distribution</div>', unsafe_allow_html=True)
-
+    st.markdown(f"<div class='section-title'>Theme Distribution</div>", unsafe_allow_html=True)
     if theme_map_data and 'themes' in theme_map_data:
         themes_list = theme_map_data['themes']
         theme_labels = [t.get('label', t.get('theme_id', 'Unknown')) for t in themes_list]
         theme_counts = [t.get('review_count', len(t.get('reviews', []))) for t in themes_list]
         total_mentions = sum(theme_counts) if sum(theme_counts) > 0 else 1
-
-        # Color palette
-        palette = ['#00B386', '#5B5EA6', '#F0A500', '#E84855', '#3AAFB9']
-
-        # Donut Chart
+        
+        palette = ['#00D09C', '#5B5EA6', '#F0A500', '#E84855', '#3AAFB9']
+        
         fig = go.Figure(data=[go.Pie(
             labels=theme_labels,
             values=theme_counts,
-            hole=0.55,
-            marker=dict(colors=palette[:len(theme_labels)], line=dict(color='#FFFFFF', width=2)),
+            hole=0.6,
+            marker=dict(colors=palette, line=dict(color=bg_card, width=2)),
             textinfo='percent+label',
             textposition='outside',
-            textfont=dict(size=12, color='#1A1D26'),
-            pull=[0.03] * len(theme_labels)
+            textfont=dict(size=12, color=text_primary)
         )])
         fig.update_layout(
             showlegend=False,
-            margin=dict(t=20, b=20, l=20, r=20),
+            margin=dict(t=30, b=30, l=30, r=30),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            height=380,
-            font=dict(family='Inter', color='#1A1D26')
+            height=350
         )
-        st.plotly_chart(fig, use_container_width=True, key="theme_donut")
-
-        # Theme Percentage Cards
-        card_cols = st.columns(len(themes_list))
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Mini cards for percentages
+        sub_cols = st.columns(len(themes_list))
         for idx, t in enumerate(themes_list):
-            label = t.get('label', t.get('theme_id', 'Theme'))
-            count = t.get('review_count', 0)
-            pct = round((count / total_mentions) * 100)
-            color = palette[idx % len(palette)]
-            with card_cols[idx]:
-                st.markdown(f"""
-                <div class="theme-pct-card">
-                    <div class="theme-icon" style="background:{color};"></div>
-                    <div class="theme-label" title="{label}">{label}</div>
-                    <div class="theme-value">{pct}%</div>
-                </div>
-                """, unsafe_allow_html=True)
+            label = t.get('label', 'Theme')
+            val = round((t.get('review_count', 0) / total_mentions) * 100)
+            with sub_cols[idx]:
+                st.markdown(f"<div class='theme-pct-card'><div class='theme-label'>{label}</div><div class='theme-value'>{val}%</div></div>", unsafe_allow_html=True)
     else:
-        st.info("No theme data available yet. Run the analysis to see the distribution.")
+        st.info("No analysis data found. Use the panel to the right to generate a report.")
 
-# --- RIGHT COLUMN: Controls & Actions ---
 with right_col:
-    # Inputs Card
-    st.markdown('<div class="section-title">Analysis Controls</div>', unsafe_allow_html=True)
-
-    review_window = st.selectbox(
-        "Review Window",
-        ["Last 4 weeks", "Last 8 weeks", "Last 12 weeks"],
-        index=0
-    )
-
-    num_reviews = st.slider(
-        "Number of Reviews to Analyse",
-        min_value=50, max_value=500, value=300, step=50
-    )
-
-    recipient_email = st.text_input(
-        "Recipient Email",
-        placeholder="product-team@groww.in"
-    )
-
-    st.markdown("")
-
-    # Action Buttons
-    if st.button("🚀  Generate Weekly Pulse Report", use_container_width=True, type="primary"):
+    st.markdown(f"<div class='section-title'>Analysis Controls</div>", unsafe_allow_html=True)
+    
+    review_win = st.selectbox("Review Window", ["Last 4 weeks", "Last 8 weeks", "Last 12 weeks"])
+    num_to_analyze = st.slider("Number of Reviews", 50, 500, 300, 50)
+    email_target = st.text_input("Recipient Email", placeholder="user@example.com")
+    
+    if st.button("🚀 Generate Weekly Pulse Report", type="primary", use_container_width=True):
         try:
-            st.info("Initializing pipeline...")
-
-            st.write("📡 **Phase 1/5:** Collecting Play Store reviews...")
-            collector = PlayStoreCollector('com.nextbillion.groww', count=num_reviews)
-            collector.collect()
-
-            st.write("🧹 **Phase 2/5:** Filtering reviews...")
-            cleaner = ReviewCleaner(RAW_REVIEWS_PATH, REVIEWS_CLEANED_PATH)
-            cleaner.clean()
-
-            st.write("🧠 **Phase 3/5:** Analyzing themes (Groq Llama-3)...")
-            analyzer = ThemeAnalyzer(REVIEWS_CLEANED_PATH, THEME_MAP_PATH)
-            analyzer.analyze()
-
-            st.write("💡 **Phase 4/5:** Generating insights...")
-            insight_gen = InsightGenerator(THEME_MAP_PATH, INSIGHTS_PATH)
-            insight_gen.generate()
-
-            st.write("📝 **Phase 5/5:** Creating pulse report (Gemini)...")
-            pulser = PulseGenerator(THEME_MAP_PATH, INSIGHTS_PATH, PULSE_MD_PATH, PULSE_TXT_PATH)
-            pulser.generate()
-
-            st.success("✅ Report generated successfully!")
+            with st.status("Running analysis...", expanded=True) as status:
+                st.write("📡 Scraping reviews...")
+                collector = PlayStoreCollector('com.nextbillion.groww', count=num_to_analyze)
+                collector.collect()
+                
+                st.write("🧹 Cleaning data...")
+                cleaner = ReviewCleaner(RAW_REVIEWS_PATH, REVIEWS_CLEANED_PATH)
+                cleaner.clean()
+                
+                st.write("🧠 Analyzing themes...")
+                analyzer = ThemeAnalyzer(REVIEWS_CLEANED_PATH, THEME_MAP_PATH)
+                analyzer.analyze()
+                
+                st.write("💡 Generating insights...")
+                insight_gen = InsightGenerator(THEME_MAP_PATH, INSIGHTS_PATH)
+                insight_gen.generate()
+                
+                st.write("📝 Finalizing report...")
+                pulser = PulseGenerator(THEME_MAP_PATH, INSIGHTS_PATH, PULSE_MD_PATH, PULSE_TXT_PATH)
+                pulser.generate()
+                
+                status.update(label="✅ Analysis Complete!", state="complete", expanded=False)
             st.rerun()
         except Exception as e:
-            st.error(f"Pipeline Error: {str(e)}")
+            st.error(f"Error: {e}")
 
-    st.markdown("")
-
-    if st.button("📧  Send Email Report", use_container_width=True):
-        if not recipient_email:
-            st.warning("Please enter a recipient email address.")
+    if st.button("📧 Send Email Report", use_container_width=True):
+        if not email_target:
+            st.warning("Recipient email is required.")
         elif not os.path.exists(PULSE_MD_PATH):
-            st.error("No report found. Generate one first.")
+            st.error("No report exists to send.")
         else:
-            with st.spinner("Sending email..."):
+            with st.spinner("Sending..."):
                 try:
                     sender = EmailSender(PULSE_MD_PATH, EMAIL_MD_PATH, EMAIL_TXT_PATH)
-                    sender.process(send_mode=True, recipient=recipient_email)
-                    st.success(f"Email sent to {recipient_email}")
+                    sender.process(send_mode=True, recipient=email_target)
+                    st.success("Report sent successfully!")
                 except Exception as e:
-                    st.error(f"Email Error: {str(e)}")
+                    st.error(f"Failed to send: {e}")
 
-# ============================================================
-# COLLAPSIBLE WEEKLY REPORT
-# ============================================================
-st.markdown("")
-st.divider()
-
-if os.path.exists(PULSE_MD_PATH) and pulse_md_content:
+# --- Collapsible Report ---
+st.markdown("<br>", unsafe_allow_html=True)
+if pulse_md_content:
     with st.expander("📄 View Weekly Report", expanded=False):
         st.markdown(pulse_md_content)
