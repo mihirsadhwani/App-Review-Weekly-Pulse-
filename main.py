@@ -1,18 +1,20 @@
 import argparse
 import sys
 import os
+import streamlit as st
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
+def get_config(key):
+    return os.getenv(key) or st.secrets.get(key)
 
 def main():
     # Validation
-    if not os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") == "your_gemini_api_key_here":
-        print("Gemini API key not found. Please add GEMINI_API_KEY to your .env file.")
-        # We don't exit here because the user might be running phases that don't need it yet,
-        # but we issues a clear warning as requested.
+    gemini_key = get_config("GEMINI_API_KEY")
+    if not gemini_key or gemini_key == "your_gemini_api_key_here":
+        print("WARNING: GEMINI_API_KEY is missing from both environment variables and st.secrets.")
     parser = argparse.ArgumentParser(description="App Review Weekly Pulse Pipeline")
     parser.add_argument('--phase', type=str, choices=['collect', 'clean', 'analyze', 'insight', 'pulse', 'email'], help="Phase to run")
     parser.add_argument('--send', action='store_true', help="Enable SMTP email delivery for Phase 6")

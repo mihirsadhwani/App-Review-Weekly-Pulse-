@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 import google.generativeai as genai
 from typing import Optional
 from dotenv import load_dotenv
@@ -6,13 +7,16 @@ from dotenv import load_dotenv
 # Ensure environment variables are loaded
 load_dotenv()
 
+def get_config(key):
+    return os.getenv(key) or st.secrets.get(key)
+
 class GeminiClient:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        self.api_key = get_config("GEMINI_API_KEY")
         self.model: Optional[genai.GenerativeModel] = None
         
         if not self.api_key or self.api_key == "your_gemini_api_key_here":
-            print("Gemini API key not found. Please add GEMINI_API_KEY to your .env file.")
+            print("ERROR: GEMINI_API_KEY is missing from both environment variables and st.secrets.")
         else:
             genai.configure(api_key=self.api_key)
             # Using Gemini 1.5 Flash

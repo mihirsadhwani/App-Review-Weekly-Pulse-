@@ -1,8 +1,12 @@
 import os
+import streamlit as st
 import json
 import random
 from typing import List, Dict, Any
 from groq import Groq
+
+def get_config(key):
+    return os.getenv(key) or st.secrets.get(key)
 
 class ThemeAnalyzer:
     def __init__(self, input_path: str, output_path: str):
@@ -10,9 +14,10 @@ class ThemeAnalyzer:
         self.output_path = output_path
         
         # Ensure API key is loaded
-        api_key = os.getenv("GROQ_API_KEY")
+        api_key = get_config("GROQ_API_KEY")
         if not api_key:
-            raise ValueError("GROQ_API_KEY environment variable not set")
+            print("ERROR: GROQ_API_KEY is missing from both environment variables and st.secrets.")
+            raise ValueError("GROQ_API_KEY configuration missing")
             
         self.client = Groq(api_key=api_key)
         self.model = "llama-3.3-70b-versatile" 
