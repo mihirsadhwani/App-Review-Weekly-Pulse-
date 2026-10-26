@@ -41,27 +41,20 @@ class TestInsightGenerator(unittest.TestCase):
         if os.path.exists(self.test_output):
             os.remove(self.test_output)
 
-    @patch.dict(os.environ, {"GROQ_API_KEY": "fake_test_key"})
-    @patch("phase4_insight_generation.services.insight_generator.Groq")
-    def test_insight_generation_flow(self, mock_groq_class):
-        # Setup Mock Groq Instance
-        mock_client = MagicMock()
-        mock_groq_class.return_value = mock_client
+    @patch("phase4_insight_generation.services.insight_generator.generate_json")
+    def test_insight_generation_flow(self, mock_generate_json):
         
         # We have 2 themes, so we expect two calls for theme quotes and one call for action ideas.
         
-        quote_response_1 = MagicMock()
-        quote_response_1.choices[0].message.content = json.dumps({
+        quote_response_1 = ({
             "quotes": ["Withdrawal takes 3 days to reflect in bank", "Money withdrawal is very slow"]
         })
         
-        quote_response_2 = MagicMock()
-        quote_response_2.choices[0].message.content = json.dumps({
+        quote_response_2 = ({
             "quotes": ["app crashes during SIP purchase"]
         })
         
-        action_ideas_response = MagicMock()
-        action_ideas_response.choices[0].message.content = json.dumps({
+        action_ideas_response = ({
             "action_ideas": [
                 {"title": "Idea 1", "rationale": "Rationale 1"},
                 {"title": "Idea 2", "rationale": "Rationale 2"},
@@ -69,7 +62,7 @@ class TestInsightGenerator(unittest.TestCase):
             ]
         })
         
-        mock_client.chat.completions.create.side_effect = [
+        mock_generate_json.side_effect = [
             quote_response_1,
             quote_response_2,
             action_ideas_response

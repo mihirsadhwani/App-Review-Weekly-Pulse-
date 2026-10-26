@@ -13,3 +13,6 @@ phase5_weekly_pulse/weekly_pulse.md
 phase5_weekly_pulse/weekly_pulse.txt
 phase6_email_delivery/email_draft.md
 phase6_email_delivery/email_draft.txt
+# local scratch
+storage/
+.vercel

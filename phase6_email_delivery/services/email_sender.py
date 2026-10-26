@@ -1,15 +1,12 @@
 import os
 import smtplib
-import streamlit as st
 from email.message import EmailMessage
 from datetime import datetime
 
-def get_config(key):
-    """
-    Priority: 1. os.getenv (for local .env)
-             2. st.secrets (for Streamlit Cloud)
-    """
-    return os.getenv(key) or st.secrets.get(key)
+from services.config_loader import get_config
+from services.gemini_client import generate_text, LLMError
+
+DEFAULT_INTRO = "Please find below the weekly user feedback pulse for Groww Mutual Fund."
 
 class EmailSender:
     def __init__(self, input_pulse_path: str, output_draft_md: str, output_draft_txt: str):
@@ -25,12 +22,25 @@ class EmailSender:
         self.smtp_tls = (get_config("SMTP_TLS") or "true").lower() == "true"
         self.default_to = get_config("EMAIL_TO")
 
-    def format_email_content(self, pulse_content: str, is_markdown: bool = False) -> str:
-        # Markdown vs TXT spacing is slightly different if needed, but keeping simple
+    def draft_intro(self, pulse_content: str) -> str:
+        """Ask Gemini for a short, professional intro line; fall back to the static template."""
+        prompt = (
+            "Write a 1-2 sentence introduction for an internal email to product leadership that "
+            "contains the weekly app review pulse below. Mention the single most important signal. "
+            "Plain text only, no greeting, no sign-off, no markdown.\n\nPulse:\n" + pulse_content
+        )
+        try:
+            intro = generate_text(prompt, label="email_intro", temperature=0.3)
+            return intro if intro and len(intro) < 500 else DEFAULT_INTRO
+        except LLMError as e:
+            print(f"Email intro generation failed, using template: {e}")
+            return DEFAULT_INTRO
+
+    def format_email_content(self, pulse_content: str, is_markdown: bool = False, intro: str = DEFAULT_INTRO) -> str:
         lines = [
             "Hi Team,",
             "",
-            "Please find below the weekly user feedback pulse for Groww Mutual Fund.",
+            intro,
             "",
             pulse_content,
             "",
@@ -56,7 +66,8 @@ class EmailSender:
         subject = f"[Weekly Pulse] Groww Mutual Fund Reviews — Week of {date_str}"
         
         # Email Body
-        body_md = f"Subject: {subject}\nTo: {final_recipient}\n\n" + self.format_email_content(pulse_content, True)
+        intro = self.draft_intro(pulse_content)
+        body_md = f"Subject: {subject}\nTo: {final_recipient}\n\n" + self.format_email_content(pulse_content, True, intro)
         
         pulse_txt_path = self.input_pulse_path.replace(".md", ".txt")
         if os.path.exists(pulse_txt_path):
@@ -65,7 +76,7 @@ class EmailSender:
         else:
             pulse_content_txt = pulse_content
             
-        body_txt = f"Subject: {subject}\nTo: {final_recipient}\n\n" + self.format_email_content(pulse_content_txt, False)
+        body_txt = f"Subject: {subject}\nTo: {final_recipient}\n\n" + self.format_email_content(pulse_content_txt, False, intro)
         
         # Ensure directory exists
         output_dir = os.path.dirname(self.output_draft_md)
@@ -85,12 +96,11 @@ class EmailSender:
         if send_mode:
             print("Send Mode — Attempting SMTP delivery...")
             if not all([self.smtp_host, self.smtp_port, self.smtp_user, self.smtp_password, final_recipient]):
-                print("Error: Missing SMTP configuration or recipient in configuration sources.")
-                return
+                raise RuntimeError("Missing SMTP configuration or recipient.")
                 
             try:
                 msg = EmailMessage()
-                msg.set_content(self.format_email_content(pulse_content_txt, False))
+                msg.set_content(self.format_email_content(pulse_content_txt, False, intro))
                 msg['Subject'] = subject
                 msg['From'] = self.smtp_user
                 msg['To'] = final_recipient
@@ -106,7 +116,7 @@ class EmailSender:
                 print("Email successfully sent.")
             except Exception as e:
                 print(f"SMTP ERROR: {e}")
-                st.error(f"Error sending email: {e}")
+                raise RuntimeError(f"SMTP delivery failed: {e}") from e
         else:
             print("Dry Run Mode — Email draft generated but not sent.")
             

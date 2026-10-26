@@ -17,8 +17,9 @@ class TestEmailSender(unittest.TestCase):
             if os.path.exists(f):
                 os.remove(f)
                 
+    @patch('phase6_email_delivery.services.email_sender.generate_text', return_value='Intro line.')
     @patch('smtplib.SMTP')
-    def test_dry_run_mode(self, mock_smtp):
+    def test_dry_run_mode(self, mock_smtp, _gen):
         sender = EmailSender(self.input_md, self.output_md, self.output_txt)
         sender.process(send_mode=False, recipient="test@example.com")
         
@@ -43,7 +44,8 @@ class TestEmailSender(unittest.TestCase):
         "SMTP_PASSWORD": "testpassword",
         "EMAIL_TO": "test@example.com"
     })
-    def test_send_mode(self, mock_smtp):
+    @patch('phase6_email_delivery.services.email_sender.generate_text', return_value='Intro line.')
+    def test_send_mode(self, _gen, mock_smtp):
         # Create a mock server instance
         mock_server = MagicMock()
         mock_smtp.return_value = mock_server

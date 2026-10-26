@@ -1,26 +1,57 @@
 import os
-import streamlit as st
 import json
 import random
+import contextvars
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
-from groq import Groq
 
-def get_config(key):
-    return os.getenv(key) or st.secrets.get(key)
+from services.gemini_client import generate_json, ANALYSIS_MODEL, SYNTHESIS_MODEL
+
+THEMES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "themes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "theme_id": {"type": "string"},
+                    "label": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+                "required": ["theme_id", "label", "description"],
+            },
+        }
+    },
+    "required": ["themes"],
+}
+
+ASSIGNMENTS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "assignments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "reviewId": {"type": "string"},
+                    "theme_id": {"type": "string"},
+                },
+                "required": ["reviewId", "theme_id"],
+            },
+        }
+    },
+    "required": ["assignments"],
+}
 
 class ThemeAnalyzer:
     def __init__(self, input_path: str, output_path: str):
         self.input_path = input_path
         self.output_path = output_path
         
-        # Ensure API key is loaded
-        api_key = get_config("GROQ_API_KEY")
-        if not api_key:
-            print("ERROR: GROQ_API_KEY is missing from both environment variables and st.secrets.")
-            raise ValueError("GROQ_API_KEY configuration missing")
-            
-        self.client = Groq(api_key=api_key)
-        self.model = "llama-3.3-70b-versatile" 
+        # Discovery needs stronger reasoning; classification is high-volume and uses the lighter model.
+        self.discovery_model = SYNTHESIS_MODEL
+        self.classification_model = ANALYSIS_MODEL
 
     def _get_balanced_sample(self, reviews: List[Dict[str, Any]], sample_size: int = 150) -> List[Dict[str, Any]]:
         if len(reviews) <= sample_size:
@@ -74,30 +105,26 @@ Return the output in STRICT JSON format with the following structure:
 Reviews:
 {reviews_text}
 """
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that outputs only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1
+        response_json = generate_json(
+            prompt,
+            schema=THEMES_SCHEMA,
+            model=self.discovery_model,
+            label="theme_discovery",
         )
-        
-        response_json = json.loads(response.choices[0].message.content)
-        return response_json.get("themes", [])
+        themes = response_json.get("themes", [])
+        if len(themes) > 5:
+            themes = themes[:5]
+        return themes
 
     def classify_reviews(self, all_reviews: List[Dict[str, Any]], themes: List[Dict[str, str]]) -> Dict[str, str]:
-        # Batch reviews to avoid token limits. We'll do simple batching.
+        """Classify in batches (to respect token limits); batches run concurrently to stay within serverless time limits."""
         batch_size = 50
-        review_to_theme = {}
-        
         themes_context = json.dumps(themes, indent=2)
-        
-        for i in range(0, len(all_reviews), batch_size):
-            batch = all_reviews[i:i+batch_size]
+        batches = [all_reviews[i:i + batch_size] for i in range(0, len(all_reviews), batch_size)]
+
+        def classify_batch(args):
+            idx, batch = args
             reviews_list_str = json.dumps([{"reviewId": r["reviewId"], "text": r["review_text"]} for r in batch])
-            
             prompt = f"""
 Given the following list of themes:
 {themes_context}
@@ -113,23 +140,22 @@ Return the output in STRICT JSON format like this:
 Reviews to classify:
 {reviews_list_str}
 """
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that outputs only valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1
-            )
-            
             try:
-                assignments = json.loads(response.choices[0].message.content).get("assignments", [])
-                for a in assignments:
-                    review_to_theme[a.get("reviewId")] = a.get("theme_id")
+                return generate_json(prompt, schema=ASSIGNMENTS_SCHEMA, model=self.classification_model,
+                                     label=f"theme_classification_{idx}").get("assignments", [])
             except Exception as e:
-                print(f"Error parsing classification batch: {e}")
-                
+                print(f"Error parsing classification batch {idx}: {e}")
+                return []
+
+        review_to_theme: Dict[str, str] = {}
+        if len(batches) == 1:
+            results = [classify_batch((0, batches[0]))]
+        else:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                results = list(pool.map(lambda a: contextvars.copy_context().run(classify_batch, a), enumerate(batches)))
+        for assignments in results:
+            for a in assignments:
+                review_to_theme[a.get("reviewId")] = a.get("theme_id")
         return review_to_theme
 
     def analyze(self):

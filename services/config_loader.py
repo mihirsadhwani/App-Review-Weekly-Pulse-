@@ -1,21 +1,26 @@
 import os
-import streamlit as st
+from typing import Optional
 
-def get_config(key: str, default: str = None) -> str:
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
     """
-    Priority: 1. os.getenv (for local .env)
-             2. st.secrets (for Streamlit Cloud)
+    Priority: 1. os.getenv (local .env)
+              2. st.secrets (Streamlit Cloud)
+              3. default
     """
-    value = os.getenv(key) or st.secrets.get(key)
-    if not value:
-        # Check if we are in streamlit and it might be in a nested dict, 
-        # but the request asks for direct st.secrets.get(key) or os.getenv(key)
-        pass
-    
-    if not value and default is not None:
-        return default
-        
-    if not value:
-        print(f"WARNING: Configuration key '{key}' is missing from both environment variables and st.secrets.")
-        
-    return value
+    value = os.getenv(key)
+    if value:
+        return value
+
+    try:
+        import streamlit as st
+        value = st.secrets.get(key)
+    except Exception:
+        # No secrets.toml available (CLI runs, tests)
+        value = None
+
+    return value or default

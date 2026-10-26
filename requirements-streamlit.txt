@@ -1,0 +1,7 @@
+# Local development: the original Streamlit UI, tests and everything the API needs.
+-r requirements.txt
+streamlit
+pandas
+plotly
+pytest
+playwright

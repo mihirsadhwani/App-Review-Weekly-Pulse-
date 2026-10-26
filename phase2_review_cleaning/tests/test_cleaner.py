@@ -65,3 +65,11 @@ class TestReviewCleaner(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCleanerPrivacyAndWindow(unittest.TestCase):
+    def test_scrub_pii(self):
+        from phase2_review_cleaning.services.cleaner import scrub_pii
+        out = scrub_pii("mail me at a.b@x.com or 9876543210, ticket 28326142, see https://x.io/a")
+        for leaked in ("a.b@x.com", "9876543210", "28326142", "https://x.io/a"):
+            self.assertNotIn(leaked, out)

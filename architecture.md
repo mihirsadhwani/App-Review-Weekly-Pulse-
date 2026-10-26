@@ -2,8 +2,8 @@
 
 > **Product:** Groww Mutual Fund App  
 > **Goal:** Convert recent Google Play Store reviews into a one-page weekly product feedback pulse  
-> **LLM Provider:** Groq  
-> **Date:** 2026-03-10
+> **LLM Provider:** Google Gemini (paid tier, `google-genai` SDK)  
+> **Date:** 2026-10-23
 
 ---
 
@@ -18,7 +18,7 @@ The **App Review Weekly Pulse** system is an end-to-end AI-powered pipeline that
 | **Review Ingestion** | Fetch reviews via **Play Store Review Collector** (auto-scrape) or Manual CSV upload; filtering for the last 8–12 weeks |
 | **Public Data Only** | Only publicly accessible review data is collected (rating, text, title, date). No login or private data access used. |
 | **PII Scrubbing** | Strip usernames, emails, device IDs, and any personally identifiable information |
-| **Theme Extraction** | Use Groq LLM to cluster reviews into ≤ 5 dominant themes |
+| **Theme Extraction** | Use Gemini to cluster reviews into ≤ 5 dominant themes |
 | **Insight Generation** | Surface real user quotes and derive 3 actionable product ideas |
 | **Weekly Pulse** | Render a ≤ 250-word, leadership-scannable one-page report |
 | **Email Draft & Delivery** | Auto-generate a ready-to-send email and optionally deliver via SMTP |
@@ -29,8 +29,8 @@ The **App Review Weekly Pulse** system is an end-to-end AI-powered pipeline that
 
 - **Phase 1 → Review Collection**
 - **Phase 2 → Review Cleaning**
-- **Phase 3 → Theme Analysis (Groq)**
-- **Phase 4 → Insight Generation (Groq)**
+- **Phase 3 → Theme Analysis (Gemini)**
+- **Phase 4 → Insight Generation (Gemini)**
 - **Phase 5 → Weekly Pulse Generation (Gemini)**
 - **Phase 6 → Email Draft & Delivery (Optional)**
 - **Phase 7 → Web UI Layer**
@@ -105,9 +105,9 @@ Email Draft & Delivery
 │       │        │         │         │         │         │            │
 │       ▼        ▼         ▼         ▼         ▼         ▼            │
 │  ┌──────────────────────────────────────────────────────────────────┐│
-│  │               AI SERVICE LAYER (Groq + Gemini)                  ││
-│  │  Groq: Theme Discovery · Classification · Insight Generation     ││
-│  │  Gemini: Pulse Composition · Email Drafting                      ││
+│  │                  AI SERVICE LAYER (Gemini)                       ││
+│  │  Flash-Lite: Theme Classification                                ││
+│  │  Flash: Discovery · Insights · Pulse Composition · Email Drafting ││
 │  └──────────────────────────────────────────────────────────────────┘│
 └──────────┬───────────────────────────────────────────────────────────┘
            │
@@ -220,18 +220,18 @@ Raw Reviews ──▶ Schema Validation ──▶ Date Filtering ──▶ PII S
 
 ---
 
-### Phase 3 — Theme Analysis (Groq LLM)
+### Phase 3 — Theme Analysis (Gemini)
 **Goal:** Identify major themes across user feedback.
 
 **Responsibilities:**
-- **Step 1 — Theme Discovery:** Sample 100–150 reviews, use Groq LLM to generate **3–5 dominant themes**
+- **Step 1 — Theme Discovery:** Sample 100–150 reviews, use Gemini to generate **3–5 dominant themes**
 - **Step 2 — Review Classification:** Assign each review to exactly **one theme**
 
 **Output artifact:** `storage/runs/{run_id}/analysis/theme_map.json`
 
 **Flow:**
 ```text
-Clean Reviews ──▶ Groq LLM ──▶ Theme Discovery ──▶ Theme Classification ──▶ Theme Map
+Clean Reviews ──▶ Gemini ──▶ Theme Discovery ──▶ Theme Classification ──▶ Theme Map
 ```
 
 ---
@@ -247,7 +247,7 @@ Clean Reviews ──▶ Groq LLM ──▶ Theme Discovery ──▶ Theme Class
 
 **Flow:**
 ```text
-Theme Map ──▶ Groq LLM ──▶ Quote Selection ──▶ Action Generation
+Theme Map ──▶ Gemini ──▶ Quote Selection ──▶ Action Generation
 ```
 
 ---
@@ -422,7 +422,7 @@ User ──▶ Web UI ──▶ API / Orchestrator ──▶ Pipeline Phases
 
 ---
 
-## 6. AI Component Design (Groq & Gemini Usage)
+## 6. AI Component Design (Gemini)
 
 ### 6.1 LLM Integration Architecture
 
@@ -430,25 +430,29 @@ The AI layer incorporates robust engineering constraints for production-grade re
 - **Prompt Template Registry**: Centralized version-controlled storage for all prompts.
 - **JSON Schema Validation**: Every LLM response is strictly validated against expected schemas to avoid upstream errors.
 - **Retry Logic**: Automatic retry with exponential backoff for malformed outputs or API transient errors.
-- **Rate-Limit Handling**: Safely regulates outgoing concurrent requests to Groq.
+- **Rate-Limit Handling**: Safely regulates outgoing requests to the Gemini API.
 - **Token Budget Tracking**: Logs token usage per run to monitor cost and abort if threshold is breached.
 
 ### 6.2 Major LLM Call Inventory
 
 | Call | Purpose | Detail | Output |
 |---|---|---|---|
-| **Theme Discovery** | Generates primary analysis labels (Phase 3) | Uses sample of 100-150 reviews | Groq: Exactly 3–5 themes (`id`, `label`, `description`) |
-| **Theme Classification** | Tag reviews (Phase 3) | Batch processed across all records | Groq: Mapping of `reviewId → theme_id` |
-| **Quote Selection** | Evidence gathering (Phase 4) | Extracts pure verbatims | Groq: 1–2 quotes per theme |
-| **Action Generation** | Product ideation (Phase 4) | Evaluates Themes + Quotes | Groq: exactly 3 actionable ideas |
+| **Theme Discovery** | Generates primary analysis labels (Phase 3) | Uses sample of 100-150 reviews | Gemini Flash: Exactly 3–5 themes (`id`, `label`, `description`) |
+| **Theme Classification** | Tag reviews (Phase 3) | Batch processed across all records | Gemini Flash-Lite: Mapping of `reviewId → theme_id` |
+| **Quote Selection** | Evidence gathering (Phase 4) | Extracts pure verbatims | Gemini Flash: 1–2 quotes per theme |
+| **Action Generation** | Product ideation (Phase 4) | Evaluates Themes + Quotes | Gemini Flash: exactly 3 actionable ideas |
 | **Pulse Composition** | Final formatting (Phase 5) | Combines all synthesis | Gemini: ≤ 250 words total |
 | **Email Drafting** | Delivery (Phase 6) | Formats communication wrapper | Gemini: Internal email wrapping the pulse |
 
-### 6.3 Multi-LLM Strategy
+### 6.3 Model Tiering Strategy
 
-The system distributes LLM workloads across providers to optimize for different capabilities:
-- **Groq LLM** is used for analytical tasks requiring precise data processing and high-speed classification (Theme Detection, Review Tagging, and Insight Generation).
-- **Gemini LLM** is used for creative summarization and professional formatting tasks (Weekly Pulse Composition and Email Draft Generation) where long-context understanding and natural language fluidity are paramount.
+All workloads run on Google Gemini, tiered by task so cost and latency stay proportional to difficulty:
+- **`gemini-3.5-flash-lite`** (`GEMINI_ANALYSIS_MODEL`) handles high-volume, low-complexity work: Review Classification.
+- **`gemini-3.6-flash`** (`GEMINI_SYNTHESIS_MODEL`) handles reasoning and writing: Theme Discovery, Quote Selection, Action Generation, Pulse Composition and Email Drafting.
+- Analytical calls use schema-constrained JSON output (`response_schema`), so responses are validated by the API before they reach the pipeline. Every call goes through `services/gemini_client.py`, which provides retries with exponential backoff, token tracking, a token budget (`LLM_TOKEN_BUDGET`) and a JSONL audit log at `storage/logs/llm_calls.jsonl`.
+- Quotes returned by the model are checked against the source reviews and discarded if they are not verbatim.
+- Cost is estimated per call from published pricing (thinking tokens count as output) and surfaced only in Run history (runs table and Usage and cost tab). Thinking level is `minimal` for all calls.
+- Models are overridable through environment variables without code changes.
 
 ### 5.3 Prompt Design Principles
 
@@ -462,7 +466,7 @@ The system distributes LLM workloads across providers to optimize for different 
 
 | Failure Scenario | Handling Strategy |
 |---|---|
-| Groq API timeout | Retry with exponential backoff (max 3 attempts) |
+| Gemini API timeout | Retry with exponential backoff (max 3 attempts) |
 | Malformed JSON response | Retry with simplified prompt; if still failing, extract with regex |
 | Rate limit exceeded | Queue and retry after cooldown period |
 | Theme count > 5 | Trigger `LLM-2` consolidation call |
@@ -516,6 +520,8 @@ storage/
     └── settings.json        # Config rules and API URLs
 ```
 
+Each completed run is archived to `storage/runs/{run_id}/` and indexed in `storage/runs/index.json`, which powers the run history view. Working artifacts for the latest run are kept in each phase folder (for example `phase5_weekly_pulse/weekly_pulse.md`).
+
 ### 7.2 Storage Principles
 
 | Principle | Rationale |
@@ -523,7 +529,7 @@ storage/
 | **File-based storage** | No database needed for this scale; JSON + Markdown files are inspectable and version-controllable |
 | **Run-scoped isolation** | Each run's artifacts are self-contained under a unique run directory |
 | **Prompt versioning** | Prompts are stored as template files, enabling iteration without code changes |
-| **LLM call logging** | Every Groq call (prompt, response, token count, latency) is logged for cost tracking and debugging |
+| **LLM call logging** | Every Gemini call (prompt, response, token count, latency) is appended to `storage/logs/llm_calls.jsonl` for cost tracking and debugging |
 
 ### 7.3 Retention Policy
 
@@ -609,14 +615,14 @@ _Generated by App Review Weekly Pulse · {timestamp}_
 | **Multiple apps** | Parameterise the pipeline by app ID; run independent pipelines per app; shared prompt templates |
 | **Higher frequency (daily)** | Switch from file-based storage to a lightweight database (SQLite → PostgreSQL); add incremental ingestion (process only new reviews since last run) |
 | **Multi-user access** | Add authentication to the web interface; introduce role-based access for viewing vs. triggering |
-| **Multi-language reviews** | Add a translation step between Phase 1 and Phase 2 using Groq or a dedicated translation API |
+| **Multi-language reviews** | Add a translation step between Phase 1 and Phase 2 using Gemini or a dedicated translation API |
 
 ### 10.3 Cost Management
 Cost efficiency acts as a premier architectural concern. Constraints include:
 - **Batching Reviews:** Packing optimally sized blocks of reviews into context windows.
 - **Limiting Token Size:** Rigorous caps imposed on API generation outputs.
 - **Caching Repeated LLM Calls:** Idempotent runs return locally cached LLM conclusions per deterministic inputs instead of refiring.
-- **Using Smaller Models for Classification:** Fast routing inference (`llama-8b` equivalents) manages routine Review Classification, reserving powerful parameters strictly for complex operations like Synthesis.
+- **Using Smaller Models for Classification:** The low-cost `gemini-3.5-flash-lite` model manages routine Review Classification, reserving powerful parameters strictly for complex operations like Synthesis.
 
 
 ### 9.4 Reliability
@@ -641,56 +647,46 @@ Visibility acts as the lifeline for asynchronous operations:
 
 ## 12. Web Interface Architecture
 
+### 12.0 Deployment targets
+
+The same pipeline phases back two front ends:
+
+- **Vercel web app** (`main.py` FastAPI, `public/` static SPA). The pipeline is exposed as stateless HTTP steps (`/api/pipeline/collect|clean|analyze|insights|pulse`, `/api/email`) that the browser calls in sequence, so each request fits serverless time limits and no shared state is required. Run history lives in browser storage, or in Upstash Redis when `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set. Access can be protected with `APP_PASSWORD`.
+- **Streamlit app** (`phase7_streamlit_ui/app.py`) for local use. Streamlit needs a long-running server and cannot be hosted on Vercel.
+
 The web UI is a **lightweight single-page application** that serves as the interaction layer for the pipeline.
 
 ### 12.1 UI Components
 
+Implemented in Streamlit (`phase7_streamlit_ui/app.py`) using the shadcn/ui design system (zinc tokens, card, badge, tabs, table, alert and sidebar patterns, implemented natively so Manrope applies everywhere), Plotly charts, the **Manrope** typeface throughout and **Material Symbols** icons. No emojis are used anywhere in the interface or in generated content. Light and dark themes are available from the header.
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    HEADER / NAV BAR                      │
-│         App Review Weekly Pulse · Groww MF               │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │           INGESTION / UPLOAD PANEL               │   │
-│  │  ┌────────────────────┐  ┌───────────────────┐   │   │
-│  │  │  Auto-Fetch Pulse  │  │  CSV Upload Zone  │   │   │
-│  │  │  [🚀 Start Fetch]  │  │  (Fallback)       │   │   │
-│  │  └────────────────────┘  └───────────────────┘   │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │           PIPELINE CONTROL PANEL                  │   │
-│  │  [▶ Generate Pulse]    [📧 Generate Email Draft]  │   │
-│  │                                                    │   │
-│  │  Status: ████████░░ Phase 5 of 6 — Pulse Generation  │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              REPORT VIEWER                        │   │
-│  │                                                    │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐        │   │
-│  │  │  Pulse   │  │  Email   │  │  Themes  │        │   │
-│  │  │  Tab     │  │  Tab     │  │  Tab     │        │   │
-│  │  └──────────┘  └──────────┘  └──────────┘        │   │
-│  │                                                    │   │
-│  │  [Rendered Markdown content of selected tab]       │   │
-│  │                                                    │   │
-│  └──────────────────────────────────────────────────┘   │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              RUN HISTORY                          │   │
-│  │  ┌────────┬────────────┬────────┬──────────────┐ │   │
-│  │  │ Run ID │ Date       │ Status │ Actions      │ │   │
-│  │  ├────────┼────────────┼────────┼──────────────┤ │   │
-│  │  │ #007   │ 2026-03-10 │ ✅     │ View · Copy  │ │   │
-│  │  │ #006   │ 2026-03-03 │ ✅     │ View · Copy  │ │   │
-│  │  └────────┴────────────┴────────┴──────────────┘ │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  [mark]  Weekly Review Pulse              [Gemini status] [Dark] │
+├─────────────────────────────────────────────────────────────────┤
+│  KPI row: Reviews · Themes · Avg rating · Tokens · Last run      │
+├─────────────────────────────────────────────────────────────────┤
+│  Sidebar: Overview | Reviews | Report | Pipeline | History      │
+│                                                                   │
+│  Dashboard   Top themes with sentiment, share and verbatim       │
+│              quote · theme distribution · rating distribution    │
+│              · product action ideas                               │
+│                                                                   │
+│  Pipeline    Ingestion panel (Play Store or CSV upload, review    │
+│              window, volume) · live 5-step pipeline status        │
+│                                                                   │
+│  Report      Weekly pulse (download) · Email draft / send ·       │
+│              classified reviews table                             │
+│                                                                   │
+│  History     Run table (status, reviews, themes, tokens) ·        │
+│              archived pulse viewer                                │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 12.2 Explicit API Endpoints (Backend Comm)
+
+> **Implementation note:** The Streamlit UI calls the orchestration layer (`services/orchestrator.py`) in-process rather than over HTTP. `run_pipeline()` corresponds to `POST /api/run` (with CSV bytes covering `POST /api/upload`), `list_runs()` and the progress callback correspond to `GET /api/run/{id}/status`, `read_run_file()` to `GET /api/run/{id}/pulse`, and `EmailSender.process()` to `POST /api/run/{id}/email`. The HTTP contract below remains the target if the UI is ever split from the backend.
+
 
 The architecture exposes robust, dedicated endpoints explicitly linking the Web UI interaction to backend orchestrators:
 

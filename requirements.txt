@@ -1,7 +1,7 @@
-google-play-scraper
+# Runtime dependencies for the Vercel deployment (keep this list small: serverless bundles have a size limit).
+fastapi
+uvicorn
+httpx
 python-dotenv
-groq
-google-generativeai
-streamlit
-pandas
-plotly
+google-genai
+google-play-scraper

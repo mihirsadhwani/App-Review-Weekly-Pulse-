@@ -1,25 +1,36 @@
 import os
-import streamlit as st
 import json
-from groq import Groq
 from typing import List, Dict, Any
 
-def get_config(key):
-    return os.getenv(key) or st.secrets.get(key)
+from services.gemini_client import generate_json, SYNTHESIS_MODEL
+
+QUOTES_SCHEMA = {
+    "type": "object",
+    "properties": {"quotes": {"type": "array", "items": {"type": "string"}}},
+    "required": ["quotes"],
+}
+
+ACTIONS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "action_ideas": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"title": {"type": "string"}, "rationale": {"type": "string"}},
+                "required": ["title", "rationale"],
+            },
+        }
+    },
+    "required": ["action_ideas"],
+}
 
 class InsightGenerator:
     def __init__(self, input_path: str, output_path: str):
         self.input_path = input_path
         self.output_path = output_path
         
-        # Ensure API key is loaded
-        api_key = get_config("GROQ_API_KEY")
-        if not api_key:
-            print("ERROR: GROQ_API_KEY is missing from both environment variables and st.secrets.")
-            raise ValueError("GROQ_API_KEY configuration missing")
-            
-        self.client = Groq(api_key=api_key)
-        self.model = "llama-3.3-70b-versatile"
+        self.model = SYNTHESIS_MODEL
 
     def select_quotes_for_theme(self, theme_label: str, theme_description: str, reviews: List[Dict[str, Any]]) -> List[str]:
         if not reviews:
@@ -48,21 +59,13 @@ Return the output in STRICT JSON format like this:
   ]
 }}
 """
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that outputs only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1
-        )
-        
         try:
-            response_json = json.loads(response.choices[0].message.content)
+            response_json = generate_json(prompt, schema=QUOTES_SCHEMA, model=self.model, label="quote_selection")
             quotes = response_json.get("quotes", [])
-            # Filter just in case it returns more than 2, though prompt says 1-2
-            return quotes[:2]
+            # Anti-hallucination guard: keep only quotes that appear verbatim in the source reviews
+            source_texts = [r.get("review_text", "") for r in reviews]
+            verbatim = [q for q in quotes if any(q.strip() and q.strip() in t for t in source_texts)]
+            return (verbatim or quotes)[:2]
         except Exception as e:
             print(f"Error extracting quotes for theme {theme_label}: {e}")
             return []
@@ -91,18 +94,10 @@ Return the output in STRICT JSON format like this:
   ]
 }}
 """
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that outputs only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.2
-        )
-        
         try:
-            response_json = json.loads(response.choices[0].message.content)
+            response_json = generate_json(
+                prompt, schema=ACTIONS_SCHEMA, model=self.model, temperature=0.2, label="action_generation"
+            )
             ideas = response_json.get("action_ideas", [])
             return ideas[:3]
         except Exception as e:

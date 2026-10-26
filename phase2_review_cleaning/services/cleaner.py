@@ -1,11 +1,32 @@
 import json
 import os
 import re
+from datetime import datetime, timedelta
+from typing import Optional
+
+REQUIRED_FIELDS = ("reviewId", "rating", "review_text")
+
+PII_PATTERNS = [
+    (re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"), "[email]"),
+    (re.compile(r"https?://\S+|www\.\S+"), "[link]"),
+    (re.compile(r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{9}(?!\d)"), "[phone]"),
+    (re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b"), "[pan]"),
+    (re.compile(r"(?<!\d)\d{6,}(?!\d)"), "[number]"),
+]
+
+
+def scrub_pii(text: str) -> str:
+    for pattern, token in PII_PATTERNS:
+        text = pattern.sub(token, text)
+    return text
+
 
 class ReviewCleaner:
-    def __init__(self, input_path: str, output_path: str):
+    def __init__(self, input_path: str, output_path: str, weeks: Optional[int] = None, max_reviews: int = 300):
         self.input_path = input_path
         self.output_path = output_path
+        self.weeks = weeks
+        self.max_reviews = max_reviews
         
         # Keywords that signify generic praise or vague feedback
         self.low_signal_keywords = {
@@ -118,8 +139,23 @@ class ReviewCleaner:
         cleaned_reviews = []
         seen_texts = set()
 
+        cutoff = datetime.now() - timedelta(weeks=self.weeks) if self.weeks else None
+
         for review in raw_reviews:
-            text = review.get('review_text', '').strip()
+            # Schema validation
+            if not isinstance(review, dict) or any(review.get(f) is None for f in REQUIRED_FIELDS):
+                continue
+
+            # Date filtering (reviews without a parseable date are kept)
+            if cutoff and review.get('review_date'):
+                try:
+                    if datetime.fromisoformat(str(review['review_date'])[:19]) < cutoff:
+                        continue
+                except ValueError:
+                    pass
+
+            text = scrub_pii(str(review.get('review_text', '')).strip())
+            review = {**review, 'review_text': text}
 
             # 1. Remove empty reviews
             if not text:
@@ -141,7 +177,7 @@ class ReviewCleaner:
             cleaned_reviews.append(review)
 
         # 6. Limit dataset size
-        final_reviews = cleaned_reviews[:300]
+        final_reviews = cleaned_reviews[:self.max_reviews]
 
         output_data = {
             "review_count": len(final_reviews),

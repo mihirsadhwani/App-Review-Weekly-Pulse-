@@ -14,7 +14,7 @@ class PlayStoreCollector:
         unique_id = uuid.uuid4().hex[:6]
         return f"run_{timestamp}_{unique_id}"
 
-    def collect(self) -> tuple[str, str]:
+    def collect(self, output_path: str = None) -> tuple[str, str]:
         run_id = self.generate_run_id()
         
         # Fetch reviews from Google Play
@@ -37,13 +37,23 @@ class PlayStoreCollector:
             })
 
         # Create output directory
-        output_dir = os.path.join("phase1_review_collection")
-        os.makedirs(output_dir, exist_ok=True)
+        output_path = output_path or os.path.join("phase1_review_collection", "raw_reviews.json")
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         
-        output_path = os.path.join(output_dir, "raw_reviews.json")
         
         # Save output to JSON
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(extracted_reviews, f, indent=2, ensure_ascii=False)
             
         return run_id, output_path
+
+
+def fetch_latest(package_id: str, count: int = 50) -> list:
+    """Newest public reviews straight from Google Play, normalised to the pipeline schema. Nothing is written to disk."""
+    result, _ = reviews(package_id, lang='en', country='in', sort=Sort.NEWEST, count=count)
+    return [{
+        "reviewId": r.get("reviewId"),
+        "rating": r.get("score"),
+        "review_text": r.get("content"),
+        "review_date": str(r.get("at")) if r.get("at") else "",
+    } for r in result]

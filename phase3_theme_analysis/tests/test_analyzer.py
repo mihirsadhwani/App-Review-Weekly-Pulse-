@@ -31,17 +31,12 @@ class TestThemeAnalyzer(unittest.TestCase):
         if os.path.exists(self.test_output):
             os.remove(self.test_output)
 
-    @patch.dict(os.environ, {"GROQ_API_KEY": "fake_test_key"})
-    @patch("phase3_theme_analysis.services.analyzer.Groq")
-    def test_analysis_flow(self, mock_groq_class):
-        # Setup Mock Groq Instance
-        mock_client = MagicMock()
-        mock_groq_class.return_value = mock_client
+    @patch("phase3_theme_analysis.services.analyzer.generate_json")
+    def test_analysis_flow(self, mock_generate_json):
         
         # Configure the mock responses
         # First call: theme discovery
-        discovery_response = MagicMock()
-        discovery_response.choices[0].message.content = json.dumps({
+        discovery_response = ({
             "themes": [
                 {"theme_id": "theme_1", "label": "Payment Issues", "description": "Issues with withdrawal or deposit"},
                 {"theme_id": "theme_2", "label": "App Performance", "description": "App is slow or graphs are wrong"},
@@ -50,8 +45,7 @@ class TestThemeAnalyzer(unittest.TestCase):
         })
         
         # Second call: theme classification
-        classification_response = MagicMock()
-        classification_response.choices[0].message.content = json.dumps({
+        classification_response = ({
             "assignments": [
                 {"reviewId": "r1", "theme_id": "theme_1"},
                 {"reviewId": "r2", "theme_id": "theme_2"},
@@ -62,7 +56,7 @@ class TestThemeAnalyzer(unittest.TestCase):
             ]
         })
         
-        mock_client.chat.completions.create.side_effect = [discovery_response, classification_response]
+        mock_generate_json.side_effect = [discovery_response, classification_response]
         
         # Run analyzer
         analyzer = ThemeAnalyzer(self.test_input, self.test_output)

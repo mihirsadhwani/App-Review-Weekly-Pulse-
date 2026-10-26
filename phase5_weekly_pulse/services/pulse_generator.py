@@ -2,7 +2,7 @@ import os
 import json
 import re
 from datetime import datetime
-from services.gemini_client import generate_with_gemini
+from services.gemini_client import generate_with_gemini  # Gemini composition (synthesis model)
 
 class PulseGenerator:
     def __init__(self, theme_map_path: str, insights_path: str, output_md_path: str, output_txt_path: str):
@@ -69,7 +69,7 @@ Action Ideas:
 {json.dumps(action_ideas, indent=2)}
 
 REQUIREMENTS & CONSTRAINTS:
-1. Keep the total word count strictly UNDER 250 words.
+1. Keep the total word count strictly UNDER 250 words. Do not use emojis.
 2. Ensure up to 5 themes are included.
 3. Do not make up quotes. Use verbatim strings from the provided data.
 4. Generate **3 highly specific product improvement actions** based on the themes and user quotes.
@@ -95,7 +95,7 @@ Reviews Analysed: {total_reviews}
 
 ## Top Themes
 
-[Theme Name] — [count] mentions
+**[Theme Name]** — [count] mentions
 
 > "[exact quote from data]"
 
