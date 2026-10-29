@@ -16,7 +16,7 @@ The app ships in two forms that share the same pipeline code:
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | yes | Gemini Developer API key (an `AIza...` key from Google AI Studio) |
+| `GEMINI_API_KEY` | yes | Gemini API key from Google AI Studio (https://aistudio.google.com/apikey) |
 | `APP_PASSWORD` | strongly recommended | Shared password for the site. Without it anyone with the URL can spend your Gemini credits and send email |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS`, `EMAIL_TO` | optional | Email delivery |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | optional | Persistent run history (see below) |

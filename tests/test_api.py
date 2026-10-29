@@ -92,6 +92,23 @@ class UsageCaptureTests(unittest.TestCase):
         expected = (1000 * 0.30 + 200 * 2.50) / 1_000_000
         self.assertAlmostEqual(calls[0]["cost_usd"], expected, places=6)
 
+    def test_rejected_key_fails_fast_with_actionable_message(self):
+        class Rejected(Exception):
+            code = 401
+
+        calls = []
+
+        def boom(**kw):
+            calls.append(1)
+            raise Rejected("API key not valid")
+
+        fake = types.SimpleNamespace(models=types.SimpleNamespace(generate_content=boom))
+        with patch.object(gemini_client, "_get_client", return_value=fake):
+            with self.assertRaises(gemini_client.LLMError) as ctx:
+                gemini_client.generate_json("hi", label="x")
+        self.assertIn("aistudio.google.com/apikey", str(ctx.exception))
+        self.assertEqual(len(calls), 1)  # no pointless retries
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -50,6 +50,13 @@ TOKEN_BUDGET = int(get_config("LLM_TOKEN_BUDGET", "2000000"))
 _EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍]+")
 
 
+KEY_HELP = (
+    "Gemini rejected the API key (401/403). Check that GEMINI_API_KEY is a current Gemini API key from "
+    "https://aistudio.google.com/apikey, that it was copied in full, and that it has not been revoked or restricted. "
+    "Update it in your environment (Vercel: Project Settings, Environment Variables) and redeploy."
+)
+
+
 class LLMError(RuntimeError):
     pass
 
@@ -193,6 +200,9 @@ def _call(prompt: str, model: str, config: types.GenerateContentConfig, label: s
             return text
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
+            if getattr(exc, "code", None) in (401, 403):
+                # Bad credentials never succeed on retry; fail fast with an actionable message
+                raise LLMError(KEY_HELP) from exc
             if attempt < MAX_RETRIES - 1 and (_is_transient(exc) or isinstance(exc, LLMError)):
                 delay = 2 ** attempt * 2
                 logger.warning("%s failed (%s); retrying in %ss", label, exc, delay)
